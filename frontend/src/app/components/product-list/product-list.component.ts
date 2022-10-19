@@ -12,7 +12,15 @@ export class ProductListComponent implements OnInit {
 
   products: Product[] = [];
   currentCategoryd: number = 1;
+  previousCategoryId: number = 1;
   searchMode: boolean = false;
+
+  previousKeyWord: string = '';
+
+  // pagination properties
+  pageNumber: number = 1;
+  pageSize: number = 5;
+  totalElements: number = 0;
 
   constructor(private productService: ProductService, private route: ActivatedRoute) { }
 
@@ -31,13 +39,21 @@ export class ProductListComponent implements OnInit {
     }
   }
 
+  updatePageSize(pageSize: string) {
+    this.pageSize = +pageSize;
+    this.pageNumber = 1;
+    this.listProducts();
+  }
+
   handleSearchProducts(){
     const keyWord : string = this.route.snapshot.paramMap.get('keyword')!;
-    this.productService.searchProducts(keyWord).subscribe(
-      data => {
-        this.products = data;
-      }
-    )
+
+    if (this.previousKeyWord != keyWord){
+      this.pageNumber = 1;
+    }
+
+    this.productService.searchProductsPaginate(keyWord, this.pageNumber - 1, this.pageSize).subscribe(this.processResult());
+
   }
 
   handleListProducts(){
@@ -48,11 +64,23 @@ export class ProductListComponent implements OnInit {
       this.currentCategoryd = +this.route.snapshot.paramMap.get('id')!;
     }
 
-    this.productService.getProductList(this.currentCategoryd).subscribe(
-      data => {
-        this.products = data;
-      }
-    )
+    if (this.previousCategoryId != this.currentCategoryd){
+      this.pageNumber = 1;
+    }
+
+    this.previousCategoryId = this.currentCategoryd;
+
+    // pageNumber is pageNumber - 1 because Spring paginate is 0 based (starts in 0) while angular paagination is 1 based (starts in 1)
+    this.productService.getProductListPaginate(this.currentCategoryd, this.pageNumber - 1, this.pageSize).subscribe(this.processResult());
+  }
+
+  processResult() {
+    return (data: any) => {
+      this.products = data._embedded.products;
+      this.pageNumber = data.page.number + 1;
+      this.pageSize = data.page.size;
+      this.totalElements = data.page.totalElements;
+    };
   }
 
 }
